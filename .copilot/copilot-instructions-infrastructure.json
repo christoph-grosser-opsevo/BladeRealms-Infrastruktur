@@ -1,0 +1,163 @@
+{
+  "project": {
+    "name": "BladeRealms Infrastructure",
+    "description": "Azure Infrastructure as Code für BladeRealms mit Bicep",
+    "type": "Infrastructure (Bicep + PowerShell)",
+    "repository": "bladerealms-infrastructure"
+  },
+  
+  "tech_stack": {
+    "iac": "Bicep (exklusiv)",
+    "scripting": "PowerShell 7+ mit Az-Module",
+    "cloud": "Azure (exklusiv)",
+    "ci_cd": "GitHub Actions",
+    "version_control": "Git/GitHub",
+    "azure_interaction": "Az PowerShell Module (KEINE Azure CLI)"
+  },
+  
+  "architecture": {
+    "strategy": "Unified Infrastructure (Dev = Prod)",
+    "resource_groups": ["rg-bladerealms-dev", "rg-bladerealms-prod", "rg-bladerealms-shared"],
+    "resources": {
+      "container_registry": "Azure Container Registry",
+      "compute": ["Azure Container Instances (Dev)", "Azure Container Apps (Prod)"],
+      "networking": "Azure Application Gateway",
+      "security": "Azure Key Vault",
+      "storage": "Azure Storage Account",
+      "monitoring": ["Application Insights", "Log Analytics Workspace"]
+    }
+  },
+  
+  "coding_principles": {
+    "iac_best_practices": [
+      "Bicep exklusiv - keine ARM-Templates, kein Terraform",
+      "Modulare Bicep-Struktur (wiederverwendbare Module)",
+      "Parameter-Files für Umgebungen (dev.parameters.json, prod.parameters.json)",
+      "Identische Infrastruktur Dev/Prod (nur Parameter unterschiedlich)",
+      "Bicep Linting & Validation vor jedem Deployment",
+      "What-If-Prüfung vor Production-Deployments"
+    ],
+    "powershell_best_practices": [
+      "PowerShell 7+ für alle Scripts",
+      "Cmdlet-Binding für alle Scripts",
+      "Error-Handling mit Try-Catch",
+      "Verbose-Output für Debugging",
+      "Parameter-Validation",
+      "Azure PowerShell Module (Az.*) verwenden"
+    ],
+    "security": [
+      "Secrets in Azure Key Vault (nie in Code oder Git)",
+      "Managed Identities für Service-to-Service Auth",
+      "RBAC für Resource Groups",
+      "Network Security Groups für Container",
+      "SSL/TLS für alle externen Verbindungen"
+    ],
+    "cost_optimization": [
+      "Container Instances für Dev (Low-Spec)",
+      "Auto-Shutdown für Dev außerhalb Arbeitszeiten",
+      "Azure Pay-as-you-go für Prod (nur bei Bedarf)",
+      "Monitoring-Alerts für Budget-Überschreitungen"
+    ]
+  },
+  
+  "bicep_structure": {
+    "main_template": "main.bicep",
+    "parameters": ["dev.parameters.json", "prod.parameters.json"],
+    "modules": [
+      "containerRegistry.bicep",
+      "containerInstance.bicep",
+      "containerApp.bicep",
+      "applicationGateway.bicep",
+      "keyVault.bicep",
+      "monitoring.bicep"
+    ],
+    "naming_convention": {
+      "resource_groups": "rg-<project>-<env>",
+      "container_registry": "<project>acr<env>",
+      "container_instance": "<project>-server-<env>",
+      "key_vault": "kv-<project>",
+      "storage_account": "st<project><env>"
+    }
+  },
+  
+  "deployment_workflow": {
+    "dev": [
+      "1. Validate Bicep Template",
+      "2. Run What-If Analysis",
+      "3. Deploy to rg-bladerealms-dev",
+      "4. Verify Deployment",
+      "5. Run Smoke Tests"
+    ],
+    "prod": [
+      "1. Validate Bicep Template",
+      "2. Run What-If Analysis (MANDATORY)",
+      "3. Manual Approval",
+      "4. Deploy to rg-bladerealms-prod",
+      "5. Health Check",
+      "6. Rollback-Plan ready"
+    ]
+  },
+  
+  "best_practices": {
+    "bicep": [
+      "Modulare Struktur - ein Modul pro Resource-Typ",
+      "Output-Variables für abhängige Ressourcen",
+      "Parameter mit @description und @allowed Annotations",
+      "Tagging für alle Ressourcen (Environment, Project, ManagedBy)",
+      "Bicep-Decompile vermeiden - direkt Bicep schreiben",
+      "Versionierung über Git Tags"
+    ],
+    "powershell": [
+      "CmdletBinding() für alle Scripts",
+      "[Parameter(Mandatory=$true)] für Required-Parameter",
+      "$ErrorActionPreference = 'Stop' für Fail-Fast",
+      "Write-Host für User-Output, Write-Verbose für Debug",
+      "Try-Catch-Finally für Error-Handling",
+      "Az-Cmdlets statt Azure CLI wo möglich"
+    ],
+    "azure": [
+      "Resource Locks für Production-Ressourcen",
+      "Diagnostic Settings für alle Ressourcen",
+      "Activity Logs in Log Analytics",
+      "Budget Alerts konfigurieren",
+      "Backup-Strategy für kritische Daten"
+    ]
+  },
+  
+  "avoid": [
+    "Azure CLI verwenden (stattdessen Az PowerShell Module)",
+    "ARM-Templates oder Terraform verwenden",
+    "Unterschiedliche Infrastruktur zwischen Dev und Prod",
+    "Secrets in Bicep-Files oder Git committen",
+    "Manuelle Änderungen in Azure Portal (nur via IaC)",
+    "Prod-Deployments ohne What-If-Prüfung",
+    "Fehlende Resource-Tags",
+    "Hardcoded Values in Bicep (stattdessen Parameter)",
+    "bash/sh Scripts (Windows-Umgebung mit PowerShell)"
+  ],
+  
+  "monitoring": {
+    "application_insights": [
+      "Custom Metrics für Server-Performance",
+      "Telemetry für Player-Count, PvP-Stats",
+      "Availability Tests für Server-Endpoints"
+    ],
+    "log_analytics": [
+      "Container Logs zentral sammeln",
+      "Kusto Queries für Fehleranalyse",
+      "Dashboards für Ops-Team"
+    ],
+    "alerts": [
+      "Container Restart-Alerts",
+      "High CPU/Memory Usage",
+      "Budget-Überschreitung Warnings"
+    ]
+  },
+  
+  "documentation": {
+    "readme": "Setup, Prerequisites, Deployment-Schritte",
+    "bicep_modules": "Kommentare für alle Parameter und Outputs",
+    "powershell_scripts": "Get-Help kompatible Kommentare",
+    "runbooks": "Step-by-Step für häufige Operationen"
+  }
+}

@@ -1,0 +1,362 @@
+{
+  "project": {
+    "name": "BladeRealms",
+    "description": "Fernöstlich inspiriertes Action-MMO mit OpenPvP, Boni-System und Azure-first Infrastruktur",
+    "vision": "Budgetfreundliches, modulares und skalierbares MMO mit Early-Release-Strategie",
+    "repositories": [
+      "bladerealms-client (Unity Client)",
+      "bladerealms-server (Unity Headless Server)",
+      "bladerealms-infrastructure (Azure Bicep IaC)"
+    ]
+  },
+  
+  "core_principles": {
+    "minimaler_scope": {
+      "description": "Fokus auf Kernfeatures: PvP, Boni-Mechanik, Basis-PvE",
+      "rules": [
+        "Keine Feature-Bloat",
+        "Funktionierendes Kern-Gameplay zuerst",
+        "Iterative Entwicklung statt Big-Bang",
+        "MVP vor Perfektion"
+      ]
+    },
+    "kostenoptimierung": {
+      "description": "Budget-bewusste Entwicklung mit Open-Source und Cloud-Effizienz",
+      "rules": [
+        "Open-Source und lizenzfreie Assets bevorzugen",
+        "Azure-only mit Bicep für konsistente Umgebungen",
+        "Dev = Prod Infrastruktur (nur Parameter unterschiedlich)",
+        "Auto-Scaling nur bei Bedarf (>50 CCU)",
+        "Monitoring für Budget-Alerts"
+      ],
+      "budget": {
+        "mvp_6_months": "250-450 EUR",
+        "prod_scale_100_ccu": "50-150 EUR/Monat"
+      }
+    },
+    "early_release_strategie": {
+      "description": "Schnelle Iteration mit Community-Feedback",
+      "phases": [
+        "Closed Alpha (10-20 Spieler)",
+        "Extended Alpha (50-100 Spieler)",
+        "Early Access (Steam)",
+        "Full Release"
+      ],
+      "rules": [
+        "Feedback-Zyklen alle 2 Wochen",
+        "Transparente Kommunikation mit Community",
+        "Iterationen basierend auf Daten"
+      ]
+    },
+    "rechtssicherheit": {
+      "description": "Keine geschützten Assets oder Marken verwenden",
+      "rules": [
+        "Keine Metin2 oder andere geschützte Assets",
+        "Eigene Namen, Artworks, Branding",
+        "Lizenzfreie oder Open-Source Assets",
+        "Copyright-Check für alle Assets"
+      ]
+    }
+  },
+  
+  "architecture": {
+    "overview": "Autoritative Server-Architektur mit Azure Cloud Backend",
+    "components": {
+      "client": {
+        "tech": "Unity 2022+ (C#)",
+        "networking": "Mirror/Fish-Networking oder Photon Fusion",
+        "features": [
+          "Client-side prediction",
+          "Server reconciliation",
+          "Input buffering",
+          "Interpolation für smooth movement"
+        ]
+      },
+      "server": {
+        "tech": "Unity Headless Linux (C#)",
+        "deployment": "Docker Container auf Azure Container Instances/Apps",
+        "responsibilities": [
+          "Autoritativer Combat & PvP",
+          "Movement validation",
+          "Skill cooldown checks",
+          "Anti-Cheat (server-side)",
+          "Instanz-Manager für Dungeon"
+        ]
+      },
+      "backend": {
+        "auth": "PlayFab (kostenlos bis 100k MAU)",
+        "inventory": "PlayFab Cloud Script",
+        "chat": "Firebase Realtime DB",
+        "analytics": "Azure Application Insights"
+      },
+      "infrastructure": {
+        "iac": "Bicep (exklusiv)",
+        "scripting": "PowerShell 7+ mit Az-Module",
+        "container_registry": "Azure Container Registry",
+        "dev": "Azure Container Instances (Low-Spec)",
+        "prod": "Azure Container Instances → Container Apps (Auto-Scale)",
+        "monitoring": "Application Insights + Log Analytics"
+      }
+    }
+  },
+  
+  "inter_component_contracts": {
+    "client_to_server": {
+      "protocol": "Mirror/Photon Networking",
+      "message_format": "Binary serialization (protobuf-style)",
+      "rules": [
+        "Client sendet nur Input, keine Simulationsergebnisse",
+        "Server authoritative für alle Gameplay-relevanten Daten",
+        "Client-side prediction mit Server-Reconciliation",
+        "Timestamps für Lag-Compensation"
+      ],
+      "anti_cheat": [
+        "Keine Position/Rotation von Client akzeptieren",
+        "Skill-Cooldowns server-side validieren",
+        "Movement-Speed-Checks (Plausibilitätsprüfung)",
+        "Damage-Berechnung ausschließlich server-side"
+      ]
+    },
+    "server_to_backend": {
+      "auth": "PlayFab SDK (C#)",
+      "data_flow": [
+        "Server authentifiziert Spieler via PlayFab",
+        "Inventar-Updates über PlayFab Cloud Script",
+        "Leaderboards über PlayFab",
+        "Chat-Messages über Firebase Realtime DB"
+      ],
+      "rules": [
+        "Secrets in Azure Key Vault (nie im Code)",
+        "Managed Identities für Service-to-Service Auth",
+        "Rate-Limiting für API-Calls",
+        "Retry-Logic mit Exponential Backoff"
+      ]
+    },
+    "infrastructure_to_all": {
+      "deployment": "Bicep Templates mit PowerShell-Scripts",
+      "environments": [
+        "Dev: rg-bladerealms-dev (Low-Spec, Auto-Shutdown)",
+        "Prod: rg-bladerealms-prod (Auto-Scale, High-Availability)",
+        "Shared: rg-bladerealms-shared (Key Vault, Storage)"
+      ],
+      "rules": [
+        "Identische Infrastruktur Dev/Prod (nur Parameter unterschiedlich)",
+        "Bicep-Validierung vor jedem Deployment",
+        "What-If-Prüfung PFLICHT vor Prod-Deployments",
+        "Rollback-Plan für jedes Deployment",
+        "Tagging: Environment, Project, ManagedBy"
+      ]
+    }
+  },
+  
+  "coding_standards": {
+    "unity_csharp": {
+      "style": "Microsoft C# Coding Conventions",
+      "rules": [
+        "PascalCase für public members",
+        "camelCase für private fields mit _ prefix",
+        "Interfaces mit I-Prefix (IPlayerController)",
+        "Async methods mit Async-Suffix (LoadPlayerDataAsync)",
+        "Regions für Zusammengehörige Code-Blöcke"
+      ],
+      "patterns": [
+        "Dependency Injection für loose coupling",
+        "Command Pattern für Input-Handling",
+        "State Machine für Character States",
+        "Object Pooling für Performance",
+        "ScriptableObjects für Konfiguration"
+      ]
+    },
+    "networking": {
+      "authority": "Server ist IMMER authoritative",
+      "client_prediction": [
+        "Inputs sofort lokal simulieren",
+        "Server-Response abwarten und reconcilieren",
+        "Bei Konflikt: Server gewinnt IMMER"
+      ],
+      "lag_compensation": [
+        "Timestamps für alle Inputs",
+        "Server rollback für Hit-Detection",
+        "Interpolation für smooth remote player movement"
+      ]
+    },
+    "bicep_iac": {
+      "structure": [
+        "main.bicep als Entry Point",
+        "Module pro Resource-Typ (containerRegistry.bicep, etc.)",
+        "Parameter-Files für Umgebungen (dev.parameters.json, prod.parameters.json)"
+      ],
+      "rules": [
+        "Modulare Struktur - wiederverwendbare Module",
+        "Output-Variables für abhängige Ressourcen",
+        "@description und @allowed für alle Parameter",
+        "Tagging für alle Ressourcen",
+        "Naming Convention: rg-<project>-<env>, <project>acr<env>",
+        "Keine Secrets in Bicep (Key Vault verwenden)"
+      ]
+    },
+    "powershell": {
+      "version": "PowerShell 7+",
+      "modules": ["Az.Accounts", "Az.Resources", "Az.ContainerInstance", "Az.ContainerRegistry"],
+      "rules": [
+        "CmdletBinding() für alle Scripts",
+        "[Parameter(Mandatory=$true)] für Required-Parameter",
+        "$ErrorActionPreference = 'Stop' für Fail-Fast",
+        "Try-Catch-Finally für Error-Handling",
+        "Write-Host für User-Output, Write-Verbose für Debug",
+        "Az-Cmdlets statt Azure CLI"
+      ]
+    }
+  },
+  
+  "testing_strategy": {
+    "client": [
+      "Unity Test Framework (Play Mode Tests)",
+      "Input-Simulation Tests",
+      "UI Tests mit Unity UI Toolkit Test Framework"
+    ],
+    "server": [
+      "Unity Test Framework (Edit Mode Tests)",
+      "Mock Clients für Load Testing",
+      "Integration Tests mit PlayFab Sandbox"
+    ],
+    "infrastructure": [
+      "Bicep Linting (az bicep build)",
+      "What-If Tests vor Deployments",
+      "Smoke Tests nach Deployment",
+      "Load Tests mit Azure Load Testing"
+    ]
+  },
+  
+  "security_requirements": {
+    "authentication": [
+      "PlayFab für Player Auth (Email/Password)",
+      "Azure Managed Identity für Service-to-Service",
+      "Keine Credentials in Code oder Git"
+    ],
+    "anti_cheat": [
+      "Server-side validation für alle Gameplay-Actions",
+      "Movement-Speed-Checks",
+      "Skill-Cooldown-Validation",
+      "Damage-Berechnung server-side",
+      "Input-Rate-Limiting"
+    ],
+    "data_protection": [
+      "Secrets in Azure Key Vault",
+      "TLS/SSL für alle Verbindungen",
+      "Encrypted Player Data in PlayFab",
+      "GDPR-Compliance: Spieler-Daten löschbar"
+    ]
+  },
+  
+  "performance_targets": {
+    "client": {
+      "fps": "60+ FPS auf Mid-Range Hardware",
+      "input_lag": "<100ms für Standard-Schlag-Angriff",
+      "load_time": "<30 Sekunden für Map-Load"
+    },
+    "server": {
+      "tick_rate": "30 Ticks/Sekunde",
+      "max_players_per_instance": "100 CCU",
+      "response_time": "<50ms für Input-Processing"
+    },
+    "infrastructure": {
+      "container_startup": "<30 Sekunden",
+      "deployment_time": "<5 Minuten für Full-Stack",
+      "auto_scale_time": "<2 Minuten für neue Container"
+    }
+  },
+  
+  "monitoring_and_observability": {
+    "client": [
+      "Unity Analytics für Player-Behavior",
+      "Crash-Reports (Unity Cloud Diagnostics)",
+      "FPS-Monitoring mit Performance-Counters"
+    ],
+    "server": [
+      "Application Insights Custom Metrics",
+      "Player-Count, PvP-Stats, Combat-Events",
+      "Performance-Counters (CPU, RAM, Network)"
+    ],
+    "infrastructure": [
+      "Container Logs in Log Analytics",
+      "Budget Alerts bei Überschreitung",
+      "Availability Tests für Server-Endpoints",
+      "Kusto Queries für Fehleranalyse"
+    ]
+  },
+  
+  "documentation_requirements": {
+    "code": [
+      "XML-Kommentare für public APIs",
+      "README.md in jedem Modul/Feature",
+      "Architecture Decision Records (ADRs) für wichtige Entscheidungen"
+    ],
+    "infrastructure": [
+      "Bicep-Module mit @description für alle Parameter",
+      "PowerShell-Scripts mit Get-Help kompatiblen Kommentaren",
+      "Runbooks für Deployment und Troubleshooting"
+    ],
+    "api": [
+      "Server-Client Message Definitions dokumentieren",
+      "PlayFab Cloud Script APIs dokumentieren",
+      "Versioning-Strategy für Breaking Changes"
+    ]
+  },
+  
+  "avoid": {
+    "general": [
+      "Keine geschützten Assets oder Marken (Metin2, etc.)",
+      "Kein Feature-Creep ohne MVP-Completion",
+      "Keine manuellen Infrastruktur-Änderungen (nur via IaC)"
+    ],
+    "client": [
+      "Keine Gameplay-Logic, die server-side gehört",
+      "Keine Secrets oder API-Keys im Client-Code",
+      "Keine direkten Backend-Calls (nur via Server)"
+    ],
+    "server": [
+      "Keine Client-Input-Daten blind vertrauen",
+      "Keine Hardcoded Werte (ScriptableObjects verwenden)",
+      "Keine Synchronous Blocking Calls"
+    ],
+    "infrastructure": [
+      "Keine Azure CLI verwenden (PowerShell Az-Module)",
+      "Keine ARM-Templates oder Terraform",
+      "Keine unterschiedliche Dev/Prod-Infrastruktur",
+      "Keine Prod-Deployments ohne What-If-Prüfung"
+    ]
+  },
+  
+  "success_metrics": {
+    "mvp": {
+      "d1_retention": "≥35%",
+      "crash_rate": "<1% pro Spielstunde",
+      "ccu_closed_alpha": "≥50 Spieler",
+      "pvp_engagement": "≥60% der Spieler ab Level 10",
+      "avg_session_length": "≥45 Minuten",
+      "combat_responsiveness": "Standard-Schlag <100ms Input-Lag"
+    },
+    "early_access": {
+      "steam_reviews": "≥70% positive",
+      "d7_retention": "≥20%",
+      "avg_revenue_per_user": "≥5 EUR",
+      "server_uptime": "≥99.5%"
+    }
+  },
+  
+  "communication_guidelines": {
+    "internal": [
+      "GitHub Issues für Bug-Tracking",
+      "GitHub Projects für Sprint-Planning",
+      "Discord für Team-Kommunikation",
+      "Wöchentliche Sync-Meetings"
+    ],
+    "community": [
+      "Discord für Player-Feedback",
+      "Reddit/TikTok für Marketing",
+      "Transparente Changelog-Posts",
+      "Community-Driven Feature-Voting"
+    ]
+  }
+}
