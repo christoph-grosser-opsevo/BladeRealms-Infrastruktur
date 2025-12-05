@@ -19,10 +19,10 @@
     "strategy": "Unified Infrastructure (Dev = Prod)",
     "resource_groups": ["rg-bladerealms-dev", "rg-bladerealms-prod", "rg-bladerealms-shared"],
     "resources": {
-      "container_registry": "Azure Container Registry",
+      "container_registry": "GitHub Container Registry (ghcr.io) - External",
       "compute": ["Azure Container Instances (Dev)", "Azure Container Apps (Prod)"],
       "networking": "Azure Application Gateway",
-      "security": "Azure Key Vault",
+      "security": "Azure Key Vault (inkl. GitHub Registry Credentials)",
       "storage": "Azure Storage Account",
       "monitoring": ["Application Insights", "Log Analytics Workspace"]
     }
@@ -30,6 +30,8 @@
   
   "coding_principles": {
     "iac_best_practices": [
+      "Minimalismus: Nur notwendige Ressourcen, keine Over-Engineering",
+      "Effizienter Code: Kurz, präzise, wartbar",
       "Bicep exklusiv - keine ARM-Templates, kein Terraform",
       "Modulare Bicep-Struktur (wiederverwendbare Module)",
       "Parameter-Files für Umgebungen (dev.parameters.json, prod.parameters.json)",
@@ -47,8 +49,10 @@
     ],
     "security": [
       "Secrets in Azure Key Vault (nie in Code oder Git)",
+      "KeyVault-Referenzen in .bicepparam Files verwenden (getSecret(), nicht Plaintext)",
       "Managed Identities für Service-to-Service Auth",
       "RBAC für Resource Groups",
+      "Key Vault Access Policies oder RBAC für Container Identities",
       "Network Security Groups für Container",
       "SSL/TLS für alle externen Verbindungen"
     ],
@@ -61,22 +65,93 @@
   },
   
   "bicep_structure": {
-    "main_template": "main.bicep",
-    "parameters": ["dev.parameters.json", "prod.parameters.json"],
-    "modules": [
-      "containerRegistry.bicep",
-      "containerInstance.bicep",
-      "containerApp.bicep",
-      "applicationGateway.bicep",
-      "keyVault.bicep",
-      "monitoring.bicep"
+    "overview": "Hierarchische Struktur: deployment → infrastructure → resource → modules",
+    "layers": {
+      "deployment": {
+        "path": "deployment/*.ps1",
+        "description": "PowerShell-Scripts für Deployment-Orchestrierung",
+        "responsibility": "Liest .bicepparam Files und orchestriert Deployments"
+      },
+      "infrastructure": {
+        "path": "infrastructure/rg-*/[resource].bicepparam",
+        "description": "Bicep-Parameter-Files pro Resource Group",
+        "responsibility": "Umgebungs-spezifische Parameter (using '../../resource/...')",
+        "structure": [
+          "infrastructure/rg-bladerealms-dev-weu-001/*.bicepparam",
+          "infrastructure/rg-bladerealms-prod-weu-001/*.bicepparam",
+          "infrastructure/rg-bladerealms-shared-weu-001/*.bicepparam"
+        ]
+      },
+      "resource": {
+        "path": "resource/[type]/[resource].bicep",
+        "description": "Bicep-Templates für konkrete Ressourcen",
+        "responsibility": "Definiert einzelne Azure-Ressourcen (module '../../modules/...')",
+        "types": [
+          "resource/container-instance/",
+          "resource/container-app/",
+          "resource/application-gateway/",
+          "resource/key-vault/",
+          "resource/monitoring/"
+        ],
+        "note": "Keine Azure Container Registry - verwendet GitHub Container Registry (ghcr.io)"
+      },
+      "modules": {
+        "path": "modules/[type]/[module].bicep",
+        "description": "Wiederverwendbare Bicep-Module",
+        "responsibility": "Abstrakte, wiederverwendbare Komponenten",
+        "types": [
+          "modules/networking/",
+          "modules/compute/",
+          "modules/security/",
+          "modules/monitoring/"
+        ]
+      }
+    },
+    "flow": [
+      "1. deployment/*.ps1 (Orchestrierung)",
+      "2. infrastructure/rg-*/[resource].bicepparam (Parameter)",
+      "3. resource/[type]/[resource].bicep (Ressourcen-Definition)",
+      "4. modules/[type]/[module].bicep (Wiederverwendbare Module)",
+      "5. Azure Resource Manager (Deployment)"
     ],
     "naming_convention": {
-      "resource_groups": "rg-<project>-<env>",
-      "container_registry": "<project>acr<env>",
-      "container_instance": "<project>-server-<env>",
-      "key_vault": "kv-<project>",
-      "storage_account": "st<project><env>"
+      "standard": "Microsoft Azure Cloud Adoption Framework",
+      "pattern": "<resource-type>-<workload>-<environment>-<region>-<instance>",
+      "delimiter": "-",
+      "resource_abbreviations": {
+        "resource_group": "rg",
+        "container_registry": "cr",
+        "container_instance": "ci",
+        "container_app": "ca",
+        "container_app_environment": "cae",
+        "key_vault": "kv",
+        "storage_account": "st",
+        "application_insights": "appi",
+        "log_analytics_workspace": "log",
+        "application_gateway": "agw",
+        "network_security_group": "nsg",
+        "virtual_network": "vnet",
+        "subnet": "snet",
+        "managed_identity": "id"
+      },
+      "examples": {
+        "resource_group": "rg-bladerealms-prod-weu-001",
+        "container_registry": "crbladerealms",
+        "container_instance": "ci-bladerealms-server-dev-weu-001",
+        "container_app": "ca-bladerealms-server-prod-weu-001",
+        "key_vault": "kv-bladerealms-shared-weu",
+        "storage_account": "stbladereamsprodweu",
+        "application_insights": "appi-bladerealms-prod-weu",
+        "log_analytics_workspace": "log-bladerealms-prod-weu"
+      },
+      "rules": [
+        "Keine Großbuchstaben (Azure-Konvention)",
+        "Hyphen als Delimiter (außer bei Storage Accounts)",
+        "Region-Codes: westeurope=weu, northeurope=neu, eastus2=eus2",
+        "Instanz-Nummer: 001, 002, 003 (3-stellig)",
+        "Workload-Name: bladerealms (konsistent über alle Ressourcen)",
+        "Environment: dev, prod, shared"
+      ]
     }
   },
   
@@ -100,12 +175,21 @@
   
   "best_practices": {
     "bicep": [
-      "Modulare Struktur - ein Modul pro Resource-Typ",
-      "Output-Variables für abhängige Ressourcen",
-      "Parameter mit @description und @allowed Annotations",
+      "Minimalistischer Code-Style: So wenig Code wie möglich, so viel wie nötig",
+      "Keine redundanten Variablen oder überflüssigen Abstraktionen",
+      "DRY-Prinzip: Module nur bei wirklicher Wiederverwendung",
+      "4-Layer-Struktur: deployment → infrastructure → resource → modules",
+      ".bicepparam Files für Parameter (nicht .json)",
+      "using-Statement in .bicepparam für Resource-Referenz",
+      "module-Statement in resource/*.bicep für Module-Referenz",
+      "Relative Pfade: '../../resource/...' und '../../modules/...'",
+      "KeyVault-Referenzen in .bicepparam mit getSecret() für Secrets",
+      "@secure() Decorator für alle Secret-Parameter in .bicep Files",
+      "Output-Variables nur wenn tatsächlich benötigt",
+      "Parameter mit @description (kurz und präzise)",
       "Tagging für alle Ressourcen (Environment, Project, ManagedBy)",
-      "Bicep-Decompile vermeiden - direkt Bicep schreiben",
-      "Versionierung über Git Tags"
+      "Microsoft Azure Naming Standards verwenden",
+      "Resource-Abbreviations gemäß CAF (Cloud Adoption Framework)"
     ],
     "powershell": [
       "CmdletBinding() für alle Scripts",
@@ -125,6 +209,9 @@
   },
   
   "avoid": [
+    "Over-Engineering: Keine unnötigen Abstraktionen oder Module",
+    "Redundanter Code: Keine wiederholten Variablen-Definitionen",
+    "Überflüssige Outputs: Nur exportieren was wirklich gebraucht wird",
     "Azure CLI verwenden (stattdessen Az PowerShell Module)",
     "ARM-Templates oder Terraform verwenden",
     "Unterschiedliche Infrastruktur zwischen Dev und Prod",

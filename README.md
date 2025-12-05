@@ -32,22 +32,29 @@ Dieses Repository enthält die **komplette Azure-Infrastruktur** für BladeRealm
 ```
 Azure Subscription: BladeRealms
 │
-├── Resource Group: rg-bladerealms-dev
-│   ├── Azure Container Registry (bladerealmsacrdev)
-│   ├── Azure Container Instances (bladerealms-server-dev)
-│   ├── Application Insights (ai-bladerealms-dev)
-│   └── Log Analytics Workspace (law-bladerealms-dev)
+├── External: GitHub Container Registry (ghcr.io)
+│   └── ghcr.io/christoph-grosser-opsevo/bladerealms-server:latest
 │
-├── Resource Group: rg-bladerealms-prod
-│   ├── Azure Container Registry (bladerealmsacr)
-│   ├── Azure Container Apps (bladerealms-server-prod)
-│   ├── Azure Application Gateway (agw-bladerealms)
-│   ├── Application Insights (ai-bladerealms-prod)
-│   └── Log Analytics Workspace (law-bladerealms-prod)
+├── Resource Group: rg-bladerealms-dev-weu-001
+│   ├── Container Instance: ci-bladerealms-server-dev-weu-001
+│   ├── Application Insights: appi-bladerealms-dev-weu
+│   └── Log Analytics Workspace: log-bladerealms-dev-weu
 │
-└── Resource Group: rg-bladerealms-shared
-    ├── Azure Key Vault (kv-bladerealms)
-    └── Storage Account (stbladerealms)
+├── Resource Group: rg-bladerealms-prod-weu-001
+│   ├── Container App: ca-bladerealms-server-prod-weu-001
+│   ├── Container App Environment: cae-bladerealms-prod-weu
+│   ├── Application Gateway: agw-bladerealms-prod-weu
+│   ├── Application Insights: appi-bladerealms-prod-weu
+│   └── Log Analytics Workspace: log-bladerealms-prod-weu
+│
+└── Resource Group: rg-bladerealms-shared-weu-001
+    ├── Key Vault: kv-bladerealms-shared-weu (inkl. GitHub Registry Credentials)
+    ├── Storage Account: stbladereamsshrweu (keine Hyphens erlaubt)
+    └── Managed Identity: id-bladerealms-shared-weu
+
+Naming Convention: Microsoft Azure Cloud Adoption Framework (CAF)
+Pattern: <resource-type>-<workload>-<environment>-<region>-<instance>
+Region-Codes: westeurope=weu, northeurope=neu, eastus2=eus2
 ```
 
 ## 🔧 Prerequisites
@@ -77,23 +84,47 @@ Set-AzContext -SubscriptionName "BladeRealms-Subscription"
 
 ### Struktur
 
-| Resource Group | Zweck | Umgebung |
-|----------------|-------|----------|
-| `rg-bladerealms-dev` | Development-Umgebung | Dev |
-| `rg-bladerealms-prod` | Production-Umgebung | Prod |
-| `rg-bladerealms-shared` | Shared Resources (Key Vault, Storage) | Shared |
+| Resource Group | Zweck | Umgebung | Naming Pattern |
+|----------------|-------|----------|----------------|
+| `rg-bladerealms-dev-weu-001` | Development-Umgebung | Dev | rg-<workload>-<env>-<region>-<instance> |
+| `rg-bladerealms-prod-weu-001` | Production-Umgebung | Prod | rg-<workload>-<env>-<region>-<instance> |
+| `rg-bladerealms-shared-weu-001` | Shared Resources (Key Vault, Storage) | Shared | rg-<workload>-<env>-<region>-<instance> |
 
 ### Erstellen
 
 ```powershell
 # Development
-New-AzResourceGroup -Name "rg-bladerealms-dev" -Location "westeurope" -Tag @{Environment="Development"; Project="BladeRealms"}
+New-AzResourceGroup `
+  -Name "rg-bladerealms-dev-weu-001" `
+  -Location "westeurope" `
+  -Tag @{
+    Environment = "Development"
+    Project = "BladeRealms"
+    ManagedBy = "Bicep"
+    Region = "westeurope"
+  }
 
 # Production
-New-AzResourceGroup -Name "rg-bladerealms-prod" -Location "westeurope" -Tag @{Environment="Production"; Project="BladeRealms"}
+New-AzResourceGroup `
+  -Name "rg-bladerealms-prod-weu-001" `
+  -Location "westeurope" `
+  -Tag @{
+    Environment = "Production"
+    Project = "BladeRealms"
+    ManagedBy = "Bicep"
+    Region = "westeurope"
+  }
 
 # Shared
-New-AzResourceGroup -Name "rg-bladerealms-shared" -Location "westeurope" -Tag @{Environment="Shared"; Project="BladeRealms"}
+New-AzResourceGroup `
+  -Name "rg-bladerealms-shared-weu-001" `
+  -Location "westeurope" `
+  -Tag @{
+    Environment = "Shared"
+    Project = "BladeRealms"
+    ManagedBy = "Bicep"
+    Region = "westeurope"
+  }
 ```
 
 ## 🧱 Bicep Module
@@ -101,42 +132,98 @@ New-AzResourceGroup -Name "rg-bladerealms-shared" -Location "westeurope" -Tag @{
 ### Verzeichnisstruktur
 
 ```
-infrastructure/
-├── main.bicep                      # Haupt-Template
-├── parameters/
-│   ├── dev.parameters.json         # Dev-Parameter
-│   └── prod.parameters.json        # Prod-Parameter
-├── modules/
-│   ├── containerRegistry.bicep     # Azure Container Registry
-│   ├── containerInstance.bicep     # Container Instances (Dev)
-│   ├── containerApp.bicep          # Container Apps (Prod)
-│   ├── applicationGateway.bicep    # Application Gateway
-│   ├── keyVault.bicep              # Key Vault
-│   └── monitoring.bicep            # App Insights + Log Analytics
-└── scripts/
-    ├── Deploy-Infrastructure.ps1   # Deployment-Script
-    ├── Test-Infrastructure.ps1     # Test-Script
-    └── Remove-Infrastructure.ps1   # Cleanup-Script
+BladeRealms-Infrastruktur/
+├── deployment/
+│   ├── Deploy-Infrastructure.ps1   # Haupt-Deployment-Script
+│   ├── Deploy-Dev.ps1              # Dev-Deployment
+│   ├── Deploy-Prod.ps1             # Prod-Deployment
+│   ├── Test-Infrastructure.ps1     # Test-Script
+│   └── Remove-Infrastructure.ps1   # Cleanup-Script
+│
+├── infrastructure/
+│   ├── rg-bladerealms-dev-weu-001/
+│   │   ├── container-instance.bicepparam
+│   │   ├── monitoring.bicepparam
+│   │   └── README.md
+│   ├── rg-bladerealms-prod-weu-001/
+│   │   ├── container-app.bicepparam
+│   │   ├── application-gateway.bicepparam
+│   │   ├── monitoring.bicepparam
+│   │   └── README.md
+│   └── rg-bladerealms-shared-weu-001/
+│       ├── key-vault.bicepparam
+│       ├── storage-account.bicepparam
+│       ├── managed-identity.bicepparam
+│       └── README.md
+│
+├── resource/
+│   ├── container-instance/
+│   │   └── container-instance.bicep
+│   ├── container-app/
+│   │   ├── container-app.bicep
+│   │   └── container-app-environment.bicep
+│   ├── application-gateway/
+│   │   └── application-gateway.bicep
+│   ├── key-vault/
+│   │   └── key-vault.bicep
+│   ├── storage-account/
+│   │   └── storage-account.bicep
+│   ├── managed-identity/
+│   │   └── managed-identity.bicep
+│   └── monitoring/
+│       ├── application-insights.bicep
+│       └── log-analytics-workspace.bicep
+│
+└── modules/
+    ├── networking/
+    │   ├── vnet.bicep
+    │   ├── subnet.bicep
+    │   └── nsg.bicep
+    ├── compute/
+    │   └── container-base.bicep
+    ├── security/
+    │   ├── rbac.bicep
+    │   └── managed-identity-base.bicep
+    └── monitoring/
+        └── diagnostic-settings.bicep
+
+📂 Hierarchie:
+deployment/*.ps1
+    ↓ (liest Parameter)
+infrastructure/rg-*/[resource].bicepparam
+    ↓ (using '../../resource/...')
+resource/[type]/[resource].bicep
+    ↓ (module '../../modules/...')
+modules/[type]/[module].bicep
+    ↓
+Azure Resource Manager
 ```
 
 ### Bicep Best Practices
 
+**Philosophie: Minimalistischer, effizienter Code**
+
+- ✅ **Nur notwendige Ressourcen**: Keine Over-Engineering-Lösungen
+- ✅ **DRY-Prinzip**: Module nur bei echter Wiederverwendung
+- ✅ **Kurze Beschreibungen**: @description präzise und knapp
+- ✅ **Outputs sparsam**: Nur exportieren was benötigt wird
+
+**4-Layer-Architektur:**
+
+1. **deployment/*.ps1** → Orchestriert Deployments (Execution)
+2. **infrastructure/rg-*/*.bicepparam** → Parameter + KeyVault-Referenzen (`az.getSecret()`) (Infrastukturbeschreibung in Azure)
+3. **resource/[type]/*.bicep** → Ressourcen-Definitionen mit `@secure()` für Secrets (Governance-Schicht)
+4. **modules/[type]/*.bicep** → Wiederverwendbare Komponenten (Basis Azure Resource)
+
+**KeyVault-Integration:**
+
 ```bicep
-// Naming Convention
-param environment string = 'dev'
-param location string = resourceGroup().location
-param projectName string = 'bladerealms'
+// .bicepparam
+param registryPassword = az.getSecret('SUB-ID', 'RG', 'KV-NAME', 'SECRET-NAME')
 
-// Tagging
-var commonTags = {
-  Environment: environment
-  Project: projectName
-  ManagedBy: 'Bicep'
-}
-
-// Outputs
-output containerRegistryLoginServer string = containerRegistry.properties.loginServer
-output containerInstanceFqdn string = containerInstance.properties.ipAddress.fqdn
+// .bicep
+@secure()
+param registryPassword string
 ```
 
 ## 🚀 Deployment
@@ -144,162 +231,54 @@ output containerInstanceFqdn string = containerInstance.properties.ipAddress.fqd
 ### Development Environment
 
 ```powershell
-# Navigiere zum Infrastructure-Repository
-Set-Location infrastructure
+# Automatisches Deployment aller Dev-Ressourcen
+.\deployment\Deploy-Dev.ps1
 
-# Validate Bicep Template
-Test-AzResourceGroupDeployment `
-  -ResourceGroupName "rg-bladerealms-dev" `
-  -TemplateFile "main.bicep" `
-  -TemplateParameterFile "parameters/dev.parameters.json"
-
-# What-If Analysis
-Get-AzResourceGroupDeploymentWhatIfResult `
-  -ResourceGroupName "rg-bladerealms-dev" `
-  -TemplateFile "main.bicep" `
-  -TemplateParameterFile "parameters/dev.parameters.json"
-
-# Deploy
-$deploymentName = "deployment-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+# Manuelle Einzelressource (optional)
 New-AzResourceGroupDeployment `
-  -ResourceGroupName "rg-bladerealms-dev" `
-  -TemplateFile "main.bicep" `
-  -TemplateParameterFile "parameters/dev.parameters.json" `
-  -Name $deploymentName `
+  -ResourceGroupName "rg-bladerealms-dev-weu-001" `
+  -TemplateParameterFile "infrastructure\rg-bladerealms-dev-weu-001\container-instance.bicepparam" `
   -Verbose
 ```
 
 ### Production Environment
 
 ```powershell
-# Validate
-Test-AzResourceGroupDeployment `
-  -ResourceGroupName "rg-bladerealms-prod" `
-  -TemplateFile "main.bicep" `
-  -TemplateParameterFile "parameters/prod.parameters.json"
-
-# What-If (WICHTIG vor Prod-Deploy!)
-Get-AzResourceGroupDeploymentWhatIfResult `
-  -ResourceGroupName "rg-bladerealms-prod" `
-  -TemplateFile "main.bicep" `
-  -TemplateParameterFile "parameters/prod.parameters.json" `
-  | Format-List
-
-# Deploy
-$deploymentName = "deployment-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-New-AzResourceGroupDeployment `
-  -ResourceGroupName "rg-bladerealms-prod" `
-  -TemplateFile "main.bicep" `
-  -TemplateParameterFile "parameters/prod.parameters.json" `
-  -Name $deploymentName `
-  -Verbose
+# Deployment mit What-If-Prüfung (MANDATORY)
+.\deployment\Deploy-Prod.ps1
 ```
+
+**Wichtig:** What-If-Analyse wird automatisch durchgeführt und erfordert manuelle Bestätigung.
 
 ### PowerShell Deployment Script
 
+**Struktur:** Alle `.bicepparam` Files in `infrastructure/rg-*/` werden automatisch durchlaufen.
+
+**Workflow:**
+1. Validate → What-If → Confirm → Deploy
+2. Iteriert über alle Parameter-Files
+3. Outputs werden angezeigt
+
+**Verwendung:**
 ```powershell
-# scripts/Deploy-Infrastructure.ps1
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true)]
-    [ValidateSet('dev','prod')]
-    [string]$Environment
-)
-
-$ErrorActionPreference = "Stop"
-
-Write-Host "🚀 Deploying BladeRealms Infrastructure to $Environment..." -ForegroundColor Cyan
-
-$resourceGroupName = "rg-bladerealms-$Environment"
-$templateFile = "main.bicep"
-$parametersFile = "parameters/$Environment.parameters.json"
-$deploymentName = "deployment-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-
-try {
-    # Validate
-    Write-Host "✅ Validating Bicep Template..." -ForegroundColor Yellow
-    $validation = Test-AzResourceGroupDeployment `
-        -ResourceGroupName $resourceGroupName `
-        -TemplateFile $templateFile `
-        -TemplateParameterFile $parametersFile
-    
-    if ($validation) {
-        Write-Error "❌ Validation failed: $($validation.Message)"
-        exit 1
-    }
-    
-    Write-Host "✅ Validation successful!" -ForegroundColor Green
-    
-    # What-If
-    Write-Host "🔍 Running What-If Analysis..." -ForegroundColor Yellow
-    $whatIf = Get-AzResourceGroupDeploymentWhatIfResult `
-        -ResourceGroupName $resourceGroupName `
-        -TemplateFile $templateFile `
-        -TemplateParameterFile $parametersFile
-    
-    $whatIf | Format-List
-    
-    # Confirm Deployment
-    $confirm = Read-Host "Continue with deployment? (y/n)"
-    if ($confirm -ne 'y') {
-        Write-Host "❌ Deployment cancelled" -ForegroundColor Red
-        exit 0
-    }
-    
-    # Deploy
-    Write-Host "🚀 Deploying..." -ForegroundColor Green
-    $deployment = New-AzResourceGroupDeployment `
-        -ResourceGroupName $resourceGroupName `
-        -TemplateFile $templateFile `
-        -TemplateParameterFile $parametersFile `
-        -Name $deploymentName `
-        -Verbose
-    
-    Write-Host "✅ Deployment successful!" -ForegroundColor Green
-    Write-Host "Deployment Name: $deploymentName" -ForegroundColor Cyan
-    
-    # Output Results
-    $deployment.Outputs.Keys | ForEach-Object {
-        Write-Host "$_: $($deployment.Outputs[$_].Value)" -ForegroundColor Yellow
-    }
-    
-} catch {
-    Write-Error "❌ Deployment failed: $($_.Exception.Message)"
-    exit 1
-}
+.\deployment\Deploy-Dev.ps1
+.\deployment\Deploy-Prod.ps1
 ```
 
 ## 📊 Monitoring
 
-### Application Insights
+**Application Insights:** Custom Metrics, Player-Count, PvP-Stats, Availability Tests
+
+**Log Analytics:** Container Logs, Kusto Queries, Performance-Dashboards
+
+**Alerts:** Container Restarts, High CPU/Memory, Budget-Überschreitungen
 
 ```powershell
-# Get Application Insights Key
-$appInsightsKey = (Get-AzApplicationInsights `
-    -ResourceGroupName "rg-bladerealms-prod" `
-    -Name "ai-bladerealms-prod").InstrumentationKey
+# Application Insights Key abrufen
+$key = (Get-AzApplicationInsights -ResourceGroupName "rg-name" -Name "appi-name").InstrumentationKey
 
-Write-Host "Application Insights Key: $appInsightsKey"
-```
-
-### Log Analytics
-
-```powershell
-# Query Logs
-$workspaceId = (Get-AzOperationalInsightsWorkspace `
-    -ResourceGroupName "rg-bladerealms-prod" `
-    -Name "law-bladerealms-prod").CustomerId
-
-# Query Container Logs
-$query = @"
-ContainerInstanceLog_CL
-| where TimeGenerated > ago(1h)
-| where ContainerGroup_s == "bladerealms-server-prod"
-| project TimeGenerated, Message
-| order by TimeGenerated desc
-"@
-
-Invoke-AzOperationalInsightsQuery -WorkspaceId $workspaceId -Query $query
+# Log Analytics Query
+Invoke-AzOperationalInsightsQuery -WorkspaceId $workspaceId -Query "ContainerInstanceLog_CL | where TimeGenerated > ago(1h)"
 ```
 
 ## 💰 Kosten
@@ -307,14 +286,16 @@ Invoke-AzOperationalInsightsQuery -WorkspaceId $workspaceId -Query $query
 ### Geschätzte monatliche Kosten
 
 | Resource | Dev | Prod (50 CCU) | Prod (100+ CCU) |
-|----------|-----|---------------|-----------------|
-| Container Registry | Kostenlos (Basic) | €5 (Standard) | €5 |
+|----------|-----|---------------|------------------|
+| GitHub Container Registry | Kostenlos | Kostenlos | Kostenlos |
 | Container Instances | €5-10 (Low-Spec) | - | - |
 | Container Apps | - | €15-30 | €50-100 |
 | Application Gateway | - | €40-60 | €60-100 |
 | App Insights | Kostenlos (5GB) | €5-10 | €10-20 |
 | Key Vault | €1 | €1 | €1 |
-| **Gesamt** | **€6-11/Monat** | **€66-106/Monat** | **€126-226/Monat** |
+| **Gesamt** | **€6-11/Monat** | **€61-101/Monat** | **€121-221/Monat** |
+
+**Hinweis**: GitHub Container Registry (ghcr.io) ist für öffentliche Repositories kostenlos und bietet unbegrenzten Speicher.
 
 ### Kostenoptimierung
 
@@ -323,40 +304,107 @@ Invoke-AzOperationalInsightsQuery -WorkspaceId $workspaceId -Query $query
 # Automation Account mit Runbook
 
 # Get all Container Instances in Dev
-$containers = Get-AzContainerGroup -ResourceGroupName "rg-bladerealms-dev"
+$containers = Get-AzContainerGroup -ResourceGroupName "rg-bladerealms-dev-weu-001"
 
 # Stop Containers
 foreach ($container in $containers) {
+    Write-Host "Stopping Container: $($container.Name)"
     Stop-AzContainerGroup -ResourceGroupName $container.ResourceGroupName -Name $container.Name
 }
 ```
 
 ## 🔐 Security
 
-### Key Vault Secrets
+### GitHub Container Registry Setup
+
+**Voraussetzungen:**
+1. GitHub Personal Access Token (PAT) mit `read:packages` und `write:packages` Berechtigung
+2. Container im GitHub Package Registry: `ghcr.io/christoph-grosser-opsevo/bladerealms-server`
+
+**GitHub Container Registry Credentials in Key Vault speichern:**
 
 ```powershell
-# Set Secrets
-Set-AzKeyVaultSecret -VaultName "kv-bladerealms" `
-    -Name "PlayFabSecretKey" `
-    -SecretValue (ConvertTo-SecureString "YOUR_SECRET" -AsPlainText -Force)
+# GitHub Container Registry Username (GitHub Username)
+Set-AzKeyVaultSecret `
+    -VaultName "kv-bladerealms-shared-weu" `
+    -Name "GithubRegistryUsername" `
+    -SecretValue (ConvertTo-SecureString "christoph-grosser-opsevo" -AsPlainText -Force)
 
-# Get Secrets
-$secret = Get-AzKeyVaultSecret -VaultName "kv-bladerealms" -Name "PlayFabSecretKey"
-$secretValue = $secret.SecretValue | ConvertFrom-SecureString -AsPlainText
+# GitHub Container Registry Password (Personal Access Token)
+Set-AzKeyVaultSecret `
+    -VaultName "kv-bladerealms-shared-weu" `
+    -Name "GithubRegistryPassword" `
+    -SecretValue (ConvertTo-SecureString "ghp_YourPersonalAccessToken" -AsPlainText -Force)
 ```
+
+**KeyVault-Referenzen in Bicep:**
+
+**Empfohlen: az.getSecret() in .bicepparam**
+
+```bicep
+// .bicepparam
+param registryPassword = az.getSecret('SUB-ID', 'RG', 'KV-NAME', 'SECRET-NAME')
+
+// .bicep
+@secure()
+param registryPassword string
+```
+
+**Alternative: PowerShell-Abfrage**
+
+```powershell
+$secret = (Get-AzKeyVaultSecret -VaultName "kv-name" -Name "secret").SecretValue
+New-AzResourceGroupDeployment ... -registryPassword $secret
+```
+
+### Key Vault Secrets Management
+
+**Secret setzen:**
+```powershell
+Set-AzKeyVaultSecret -VaultName "kv-name" -Name "SecretName" `
+  -SecretValue (ConvertTo-SecureString "VALUE" -AsPlainText -Force)
+```
+
+**Secret abrufen:**
+```powershell
+$secret = Get-AzKeyVaultSecret -VaultName "kv-name" -Name "SecretName"
+$value = $secret.SecretValue | ConvertFrom-SecureString -AsPlainText
+```
+
+**Access Policy:**
+```powershell
+Set-AzKeyVaultAccessPolicy -VaultName "kv-name" -ObjectId $objectId `
+  -PermissionsToSecrets Get,List
+```
+
+## 🔑 KeyVault Best Practices
+
+**Secret-Namenskonvention:**
+- `GithubRegistryUsername`, `GithubRegistryPassword`
+- `PlayFab-Dev-SecretKey`, `PlayFab-Prod-SecretKey`
+- Umgebungs-Suffix bei unterschiedlichen Werten
+
+**Deployment-Workflow:**
+1. Deploy Shared KeyVault → `Deploy-Shared.ps1`
+2. Secrets manuell setzen (einmalig)
+3. Deploy Dev/Prod mit `az.getSecret()` Referenzen
+
+**Wichtig:**
+- ✅ KeyVault-Referenzen in `.bicepparam`
+- ✅ `@secure()` für Secret-Parameter
+- ❌ Keine Secrets in Git oder Logs
 
 ## 🧹 Cleanup
 
 ```powershell
 # Remove Development Environment
-Remove-AzResourceGroup -Name "rg-bladerealms-dev" -Force
+Remove-AzResourceGroup -Name "rg-bladerealms-dev-weu-001" -Force
 
 # Remove Production Environment (VORSICHT!)
-Remove-AzResourceGroup -Name "rg-bladerealms-prod" -Force
+Remove-AzResourceGroup -Name "rg-bladerealms-prod-weu-001" -Force
 
 # Remove Shared Resources
-Remove-AzResourceGroup -Name "rg-bladerealms-shared" -Force
+Remove-AzResourceGroup -Name "rg-bladerealms-shared-weu-001" -Force
 ```
 
 ## 📚 Weitere Ressourcen
